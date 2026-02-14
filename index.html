@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DIY Drag Timer 201m/402m</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #0a0a0a; color: #fff; margin: 0; padding: 10px; }
+        .header { color: #ff3e3e; font-weight: bold; font-size: 24px; margin-bottom: 10px; }
+        .main-box { background: #1a1a1a; border-radius: 15px; padding: 20px; margin-bottom: 10px; border-left: 5px solid #ff3e3e; }
+        #speed { font-size: 80px; font-weight: 900; color: #00ff00; line-height: 1; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .card { background: #252525; padding: 15px; border-radius: 10px; }
+        .label { font-size: 12px; color: #aaa; text-transform: uppercase; }
+        .value { font-size: 24px; font-weight: bold; color: #ffeb3b; }
+        #dist { color: #00fbff; }
+        .status { margin-top: 10px; font-size: 14px; letter-spacing: 2px; }
+        button { width: 100%; padding: 15px; background: #333; color: white; border: none; border-radius: 10px; margin-top: 15px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="header">DRAG TIMER</div>
+    
+    <div class="main-box">
+        <div id="status" class="status" style="color: #00fbff;">READY TO RACE</div>
+        <div id="speed">0</div>
+        <div class="label">KM / JAM</div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <div class="label">Jarak (m)</div>
+            <div id="dist" class="value">0.0</div>
+        </div>
+        <div class="card">
+            <div class="label">Waktu (s)</div>
+            <div id="timer" class="value">0.00</div>
+        </div>
+        <div class="card">
+            <div class="label">201m Time</div>
+            <div id="t201" class="value">--</div>
+        </div>
+        <div class="card">
+            <div class="label">402m Time</div>
+            <div id="t402" class="value">--</div>
+        </div>
+    </div>
+
+    <button onclick="resetAll()">RESET & CALIBRATE</button>
+
+    <script>
+        let startTime, timerInterval;
+        let startCoords = null;
+        let running = false;
+        let log201 = false, log402 = false;
+
+        if ("geolocation" in navigator) {
+            navigator.geolocation.watchPosition((pos) => {
+                let speed = (pos.coords.speed || 0) * 3.6;
+                let lat = pos.coords.latitude;
+                let lon = pos.coords.longitude;
+
+                document.getElementById("speed").innerText = Math.round(speed);
+
+                // AUTO START: Jika gerak > 2 km/h
+                if (speed > 2 && !running) {
+                    startRace(lat, lon);
+                }
+
+                if (running) {
+                    let distance = calculateDistance(startCoords.lat, startCoords.lon, lat, lon);
+                    document.getElementById("dist").innerText = distance.toFixed(1);
+
+                    // Cek 201m
+                    if (distance >= 201 && !log201) {
+                        document.getElementById("t201").innerText = getElapsed();
+                        log201 = true;
+                    }
+                    // Cek 402m
+                    if (distance >= 402 && !log402) {
+                        document.getElementById("t402").innerText = getElapsed();
+                        log402 = true;
+                        stopRace();
+                    }
+                }
+            }, null, { enableHighAccuracy: true });
+        }
+
+        function startRace(lat, lon) {
+            running = true;
+            startTime = Date.now();
+            startCoords = { lat, lon };
+            log201 = false; log402 = false;
+            document.getElementById("status").innerText = "RACING...";
+            document.getElementById("status").style.color = "#ff3e3e";
+            timerInterval = setInterval(() => {
+                document.getElementById("timer").innerText = getElapsed();
+            }, 50);
+        }
+
+        function stopRace() {
+            running = false;
+            clearInterval(timerInterval);
+            document.getElementById("status").innerText = "FINISHED";
+            document.getElementById("status").style.color = "#4caf50";
+        }
+
+        function getElapsed() {
+            return ((Date.now() - startTime) / 1000).toFixed(2);
+        }
+
+        function resetAll() {
+            location.reload(); // Cara paling bersih buat reset sensor GPS
+        }
+
+        // Rumus sakti Haversine untuk hitung jarak meter
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Radius bumi dalam meter
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+    </script>
+</body>
+</html>
