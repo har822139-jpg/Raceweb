@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>DIY Drag Timer Pro - Saved</title>
+    <title>Raceweb</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { font-family: sans-serif; text-align: center; background: #000; color: #fff; margin: 0; padding: 10px; }
@@ -12,19 +12,18 @@
         .card { background: #252525; padding: 10px; border-radius: 8px; }
         .label { font-size: 11px; color: #aaa; text-transform: uppercase; }
         .value { font-size: 20px; font-weight: bold; color: #ffeb3b; }
-        
-        /* Style Tabel Riwayat */
         .history-section { margin-top: 20px; text-align: left; background: #111; padding: 10px; border-radius: 10px; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
         th { border-bottom: 1px solid #444; padding: 8px; color: #ff3e3e; }
-        td { padding: 8px; border-bottom: 1px solid #222; }
+        td { padding: 8px; border-bottom: 1px solid #222; text-align: center; }
         .btn-clear { background: #f44336; color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 10px; float: right; }
-        button.main-btn { width: 100%; padding: 15px; background: #333; color: white; border: none; border-radius: 10px; margin: 10px 0; font-weight: bold; }
+        button.main-btn { width: 100%; padding: 15px; background: #444; color: white; border: none; border-radius: 10px; margin: 10px 0; font-weight: bold; font-size: 16px; }
+        button.main-btn:active { background: #666; }
     </style>
 </head>
 <body>
 
-    <div class="header">RACEWEB TIMER PRO</div>
+    <div class="header">RACEWEB OFFLINE PRO</div>
     
     <div class="main-box">
         <div id="status" style="color: #00fbff; font-size: 12px;">READY - STANDBY</div>
@@ -33,17 +32,17 @@
     </div>
 
     <div class="grid">
-        <div class="card"><div class="label">Jarak</div><div id="dist" class="value">0.0</div></div>
-        <div class="card"><div class="label">Timer</div><div id="timer" class="value">0.00</div></div>
+        <div class="card"><div class="label">Jarak (m)</div><div id="dist" class="value">0.0</div></div>
+        <div class="card"><div class="label">Timer (s)</div><div id="timer" class="value">0.00</div></div>
         <div class="card"><div class="label">201m</div><div id="t201" class="value">--</div></div>
         <div class="card"><div class="label">402m</div><div id="t402" class="value">--</div></div>
     </div>
 
-    <button class="main-btn" onclick="location.reload()">RESET & CALIBRATE</button>
+    <button class="main-btn" onclick="resetLogic()">RESET & STANDBY</button>
 
     <div class="history-section">
         <button class="btn-clear" onclick="clearHistory()">HAPUS SEMUA</button>
-        <div style="font-weight: bold; margin-bottom: 10px;">LOG RIWAYAT</div>
+        <div style="font-weight: bold; margin-bottom: 10px;">LOG RIWAYAT (SAVED)</div>
         <table>
             <thead>
                 <tr>
@@ -55,28 +54,25 @@
     </div>
 
     <script>
-        let startTime, timerInterval, startCoords = null;
-        let running = false, log201 = false, log402 = false;
+        let startTime, timerInterval;
+        let startCoords = null;
+        let running = false;
+        let log201 = false, log402 = false;
         let time201 = "--", time402 = "--";
 
-        // Load riwayat saat buka web
         window.onload = displayHistory;
 
         if ("geolocation" in navigator) {
             navigator.geolocation.watchPosition((pos) => {
                 let speed = (pos.coords.speed || 0) * 3.6;
-                let lat = pos.coords.latitude, lon = pos.coords.longitude;
+                let lat = pos.coords.latitude;
+                let lon = pos.coords.longitude;
+                
                 document.getElementById("speed").innerText = Math.round(speed);
 
-                if (speed > 2 && !running) {
-                    running = true;
-                    startTime = Date.now();
-                    startCoords = { lat, lon };
-                    document.getElementById("status").innerText = "RACING...";
-                    timerInterval = setInterval(() => {
-                        let curTime = ((Date.now() - startTime) / 1000).toFixed(2);
-                        document.getElementById("timer").innerText = curTime;
-                    }, 50);
+                // Auto Start jika kecepatan > 2km/jam dan sedang tidak running
+                if (speed > 2 && !running && !log402) {
+                    startRace(lat, lon);
                 }
 
                 if (running) {
@@ -95,14 +91,47 @@
                         stopRace();
                     }
                 }
-            }, null, { enableHighAccuracy: true });
+            }, (err) => {
+                console.log("GPS Error: " + err.message);
+            }, { enableHighAccuracy: true, maximumAge: 0 });
+        }
+
+        function startRace(lat, lon) {
+            running = true;
+            startTime = Date.now();
+            startCoords = { lat, lon };
+            document.getElementById("status").innerText = "RACING...";
+            document.getElementById("status").style.color = "#ff3e3e";
+            timerInterval = setInterval(() => {
+                let cur = ((Date.now() - startTime) / 1000).toFixed(2);
+                document.getElementById("timer").innerText = cur;
+            }, 50);
         }
 
         function stopRace() {
             running = false;
             clearInterval(timerInterval);
             document.getElementById("status").innerText = "FINISHED";
+            document.getElementById("status").style.color = "#4caf50";
             saveToHistory(time201, time402);
+        }
+
+        // FUNGSI RESET TANPA REFRESH HALAMAN
+        function resetLogic() {
+            clearInterval(timerInterval);
+            running = false;
+            log201 = false;
+            log402 = false;
+            startCoords = null;
+            time201 = "--";
+            time402 = "--";
+            document.getElementById("speed").innerText = "0";
+            document.getElementById("timer").innerText = "0.00";
+            document.getElementById("dist").innerText = "0.0";
+            document.getElementById("t201").innerText = "--";
+            document.getElementById("t402").innerText = "--";
+            document.getElementById("status").innerText = "READY - STANDBY";
+            document.getElementById("status").style.color = "#00fbff";
         }
 
         function saveToHistory(t201, t402) {
@@ -110,7 +139,7 @@
             let now = new Date();
             let timeLabel = now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0');
             history.unshift({ time: timeLabel, d201: t201, d402: t402 });
-            localStorage.setItem("raceLog", JSON.stringify(history.slice(0, 10))); // Simpan 10 terakhir
+            localStorage.setItem("raceLog", JSON.stringify(history.slice(0, 10)));
             displayHistory();
         }
 
@@ -127,7 +156,7 @@
         }
 
         function clearHistory() {
-            if(confirm("Hapus semua data riwayat?")) {
+            if(confirm("Hapus semua data?")) {
                 localStorage.removeItem("raceLog");
                 displayHistory();
             }
@@ -137,7 +166,9 @@
             const R = 6371e3;
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
             return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
         }
     </script>
